@@ -1,4 +1,3 @@
-const ADDRESSES = require('../helper/coreAssets.json')
 const sdk = require("@defillama/sdk");
 const {
   queryV1Beta1,
@@ -17,23 +16,23 @@ const networks = {
     vaults: [
       // [underwritingAsset, vaultAddress]
       [
-        ADDRESSES.ethereum.USDC,
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
         "0x83944C256e5C057A246aE1b1945934440eb35Af6",
       ],
       [
-        ADDRESSES.ethereum.USDC,
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
         "0x8D999a2f262FfDA47A734B987D1A15bc984e45Be",
       ],
       [
-        ADDRESSES.ethereum.USDC,
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
         "0x0881Ec8e0e743906E1c1dFeE8Ae12BfDc0611b24",
       ],
       [
-        ADDRESSES.ethereum.USDC,
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
         "0x8529687adD661120C9E23E366Cc7F545f1A03ADf",
       ],
       [
-        ADDRESSES.ethereum.USDC,
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
         "0x61635d1De721DD1DB35f8aCFD0f1ea367dF65671",
       ],
     ],
@@ -41,15 +40,15 @@ const networks = {
   arbitrum: {
     vaults: [
       [
-        ADDRESSES.arbitrum.USDC,
+        "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
         "0x207472891AF32F5636c35d9ca8e17464Df7108bB",
       ],
       [
-        ADDRESSES.arbitrum.USDC,
+        "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
         "0xbcA81A2118982182d897845571BE950aE94C619c",
       ],
       [
-        ADDRESSES.arbitrum.USDC,
+        "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
         "0x2DafE4DD7C661c2CEaf967d51206f5130AA32782",
       ],
     ],
@@ -58,7 +57,7 @@ const networks = {
     vaultManager: "0xBf8c506a56F355d2340F37a91FA6569737b08254",
     vaults: [
       [
-        ADDRESSES.avax.USDC,
+        "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
         "0x2DafE4DD7C661c2CEaf967d51206f5130AA32782",
       ],
       [
@@ -67,11 +66,11 @@ const networks = {
         "0x2DafE4DD7C661c2CEaf967d51206f5130AA32782",
       ],
       [
-        ADDRESSES.avax.USDC,
+        "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
         "0xBe09C11d28683E283fdf7566DE1685A6A221B6bf",
       ],
       [
-        ADDRESSES.avax.USDC,
+        "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
         "0xBe09C11d28683E283fdf7566DE1685A6A221B6bf",
       ],
     ],
@@ -79,7 +78,7 @@ const networks = {
   fantom: {
     vaults: [
       [
-        ADDRESSES.fantom.USDC,
+        "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75",
         "0xca67B16b02E418CFbC9EF287C7C20B77dbb665f2",
       ],
     ],
@@ -87,7 +86,7 @@ const networks = {
   aurora: {
     vaults: [
       [
-        ADDRESSES.aurora.USDC_e,
+        "0xb12bfca5a55806aaf64e99521918a4bf0fc40802",
         "0x8D999a2f262FfDA47A734B987D1A15bc984e45Be",
       ],
     ],
@@ -96,7 +95,7 @@ const networks = {
     vaultManager: "0x7c1187AF4D6B23F7f7682799454168E24bC06EED",
     vaults: [
       [
-        ADDRESSES.optimism.USDC,
+        "0x7F5c764cBc14f9669B88837ca1490cCa17c31607",
         "0xfB969b45Fa9186CD8B420407552aD447F7c3817b",
       ],
     ],
@@ -108,6 +107,7 @@ const networks = {
     ],
   },
   terra2: {
+    wrapped_luna: "terra1ufj34v4agxlazv6gv36fsdm5e8y4kclqgp0qt0l8ureql9pcwssspma238",
     factory: "terra1lnq5rk4gla2c537hpyxq6wjs8g0k0dedxug2p50myydaqjtm4g5ss94y8n",
     masterPool:
       "terra1gz50vgzjssefzmld0kfkt7sfvejgel9znun9chsc82k09xfess5qqu8qyc", // Ozone v2 underwriting master pool
@@ -152,7 +152,7 @@ async function getManagedVaults(vaultManager, block, chain) {
 async function terra2(timestamp, ethBlock, chainBlocks) {
   const balances = { "terra-luna-2": 0 };
 
-  const { vaults } = await queryContract({
+  const { addresses } = await queryContract({
     contract: networks.terra2.factory,
     isTerra2: true,
     data: {
@@ -160,14 +160,26 @@ async function terra2(timestamp, ethBlock, chainBlocks) {
     },
   });
 
-  // Go through each vault and add it's underwriting balance
-  // stored in allocation_vector slot 0
-  // 09-28-22 As of now, the only asset supported for deposit
+  // 05-18-23 As of now, the only asset supported for deposit
   // is Luna2 in the form of wrapped Luna2 since RH Ozone v2 does
   // not support native token types
-  vaults.forEach((vault) => {
-    balances["terra-luna-2"] +=
-      parseInt(vault.state.allocation_vector[0]) / 1e6;
+  // For each vault, query its wrapped LUNA2 balance
+  let vault_balances = Promise.all(addresses.map(async (address) => {
+    const { balance } = await queryContract({
+      contract: networks.terra2.wrapped_luna,
+      isTerra2: true,
+      data: {
+        balance: { address: address}
+      }
+    })
+    return balance;
+  }));
+
+  vault_balances = await vault_balances;
+
+ 
+  vault_balances.forEach((balance) => {
+    balances["terra-luna-2"] += balance / 1e6;
   });
 
   // Query the Master underwriting vault
